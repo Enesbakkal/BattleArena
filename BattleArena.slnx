@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="BattleArena.Api/BattleArena.Api.csproj" />
+  <Project Path="BattleArena.Application/BattleArena.Application.csproj" />
+  <Project Path="BattleArena.Domain/BattleArena.Domain.csproj" />
+  <Project Path="BattleArena.Infrastructure/BattleArena.Infrastructure.csproj" />
+</Solution>

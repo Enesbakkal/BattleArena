@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BattleArena.Application\BattleArena.Application.csproj" />
+    <ProjectReference Include="..\BattleArena.Domain\BattleArena.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
