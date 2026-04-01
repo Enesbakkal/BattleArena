@@ -2,7 +2,7 @@ using BattleArena.Application.Abstractions;
 using BattleArena.Domain.Characters;
 using MediatR;
 
-namespace BattleArena.Application.Characters;
+namespace BattleArena.Application.Characters.Commands;
 
 // Command handler: builds a domain Character via factory, adds to DbContext, saves once.
 public sealed class CreateCharacterCommandHandler : IRequestHandler<CreateCharacterCommand, Guid>

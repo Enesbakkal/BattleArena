@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace BattleArena.Application.Characters;
+namespace BattleArena.Application.Characters.Queries;
 
 // CQRS query: paged list for grids; read-only, no writes.
 public sealed record GetCharactersQuery(int Page, int PageSize) : IRequest<PagedCharacterRowsResult>;

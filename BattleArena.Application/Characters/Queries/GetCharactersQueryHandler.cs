@@ -2,7 +2,7 @@ using BattleArena.Application.Abstractions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace BattleArena.Application.Characters;
+namespace BattleArena.Application.Characters.Queries;
 
 // Query handler: server-side paging (Skip/Take) so we do not load the whole table into memory.
 public sealed class GetCharactersQueryHandler : IRequestHandler<GetCharactersQuery, PagedCharacterRowsResult>

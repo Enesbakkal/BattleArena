@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace BattleArena.Application.Characters;
+namespace BattleArena.Application.Characters.Commands;
 
 // CQRS command: create a catalog character; MediatR handler persists it and returns the new Id.
 public sealed record CreateCharacterCommand(

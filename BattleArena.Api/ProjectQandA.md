@@ -77,3 +77,243 @@ Authoring rules for future answers in this doc: use short bullets or plain parag
 - `Select(...)` projects each entity into `CharacterRowDto` in the database query when possible (efficient shape for the API).
 - `ToListAsync` executes the query and materializes the page into memory.
 - The method returns a new `PagedCharacterRowsResult` wrapping the items and the total count so the client can render the grid and pagination UI.
+
+---
+
+## Batch 2
+
+### 1. What is `sealed class` and what value does it add to our architecture?
+
+- `sealed` means the class cannot be inherited.
+- In this project, it helps keep behavior explicit: handlers/behaviors/entities are used as designed, not altered through subclassing.
+- It reduces extension points that can create hidden side effects in DI-heavy systems.
+- It is not mandatory; we use it as a guardrail for predictable code.
+
+### 2. What is `RequestHandlerDelegate<TResponse>` and what does it contribute?
+
+- It is the "next step" function in MediatR pipeline behaviors.
+- Inside `ValidationBehavior`, calling `await next()` means "continue to the next behavior or final handler."
+- Contribution: enables middleware-like chaining (validation, logging, transaction, etc.) around handlers without modifying each handler.
+
+### 3. What is `where TRequest : notnull`?
+
+- It is a generic constraint.
+- It tells the compiler `TRequest` must not be nullable.
+- This aligns with MediatR expectations and avoids nullable warnings/edge cases in pipeline code.
+
+### 4. Explanation of the full `ValidationBehavior<TRequest, TResponse>` block
+
+- This class is a MediatR pipeline behavior, so every request passes through it before the handler.
+- It receives all validators registered for the current request type via DI (`IEnumerable<IValidator<TRequest>>`).
+- If there are no validators, it immediately calls `next()` and does nothing else.
+- If validators exist, it builds a `ValidationContext<TRequest>` and runs all validators.
+- It flattens all validation errors into one list.
+- If there is at least one error, it throws `ValidationException` and stops the pipeline.
+- If no errors exist, it calls `next()` so the actual handler executes.
+- Net effect: handlers stay cleaner because input validation is centralized.
+
+### 5. `AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>))` and Transient meaning
+
+- `Transient` creates a new instance each time it is requested from DI.
+- For pipeline behaviors, this is common and usually fine because they are stateless.
+- Think of it as "lightweight, per-resolution object," not strictly "per HTTP request."
+- `Scoped` is per request scope; `Singleton` is app-wide single instance.
+- Here, `Transient` is a safe default for validation behavior.
+
+### 6. `DbSet<Character> Characters => Set<Character>();` and `OnModelCreating` questions
+
+- `Characters => Set<Character>()` is not `override`.
+- It is an expression-bodied property that exposes EF Core's internal set for `Character`.
+- It also fulfills `IApplicationDbContext` contract (`DbSet<Character> Characters { get; }`).
+
+- `protected override void OnModelCreating(ModelBuilder modelBuilder)`:
+  - `override` means it replaces/extents the virtual method from `DbContext`.
+  - `protected` means only this class and derived classes can call it directly.
+  - We override it to apply entity configurations (`ApplyConfigurationsFromAssembly`).
+
+### 7. `AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>())` and "Windows 10 syntax"
+
+- This is not related to Windows version.
+- It is standard modern ASP.NET Core DI syntax.
+- Meaning: when code asks for `IApplicationDbContext`, provide the current scoped `ApplicationDbContext` instance.
+- This keeps Application layer dependent on abstraction while Infrastructure provides concrete implementation.
+
+### 8. Why we added specific packages to Application and Infrastructure
+
+| Application packages | Why |
+| --- | --- |
+| 1. `MediatR` | Command/query request-response pipeline and handlers. |
+| 2. `FluentValidation` | Strong input validation rules for requests. |
+| 3. `FluentValidation.DependencyInjectionExtensions` | Auto-register validators via DI scanning. |
+| 4. `Microsoft.EntityFrameworkCore` | `DbSet<>` type needed by `IApplicationDbContext`. |
+| 5. `Microsoft.Extensions.DependencyInjection.Abstractions` | `IServiceCollection` used by `AddApplication`. |
+
+| Infrastructure packages | Why |
+| --- | --- |
+| 1. `Microsoft.EntityFrameworkCore.SqlServer` | SQL Server provider + `UseSqlServer`. |
+| 2. `Microsoft.Extensions.Configuration.Abstractions` | `IConfiguration` used by `AddInfrastructure`. |
+
+### 9. Why `builder.Services.AddOpenApi();` was added
+
+- It enables OpenAPI document generation for the API.
+- In development, it allows endpoint discovery/testing more quickly.
+- It helps frontend integration because request/response contracts are visible and testable.
+
+### 10. "We will change DB when creating migrations"
+
+- Correct. Connection string is configuration, not domain logic.
+- We can switch from LocalDB to your target SQL Server before first migration.
+- Recommended order:
+  - 1. Set final connection string.
+  - 2. Create migration.
+  - 3. Update database.
+- If migration was created with wrong connection, recreate or add corrective migration.
+
+---
+
+## Application folder layout (CQRS split)
+
+This matches the “CQRS split folders” option discussed in Batch 1, question 3.
+
+- `BattleArena.Application/Characters/Commands/` — write side: `CreateCharacterCommand`, `CreateCharacterCommandValidator`, `CreateCharacterCommandHandler`
+- `BattleArena.Application/Characters/Queries/` — read side: `GetCharactersQuery` (includes `CharacterRowDto`, `PagedCharacterRowsResult`), `GetCharactersQueryHandler`
+
+Namespaces: `BattleArena.Application.Characters.Commands` and `BattleArena.Application.Characters.Queries`. MediatR still discovers handlers from the Application assembly via `AddApplication()`.
+
+---
+
+## Batch 3
+
+### 1. Middleware order: `UseFluentValidationExceptionHandler`, `UseHttpsRedirection`, `UseCors`, `UseAuthorization`, `MapControllers`, `Run`
+
+- In ASP.NET Core, the first middleware you register is the **outermost** wrapper around everything that follows.
+- Our `FluentValidationExceptionMiddleware` does **not** validate the HTTP request at the very start of the lifecycle. FluentValidation runs later, inside the app (MediatR pipeline → `ValidationBehavior` → validators) when a controller/handler executes.
+- That middleware is placed **first** so it wraps `await _next(context)` in a **try/catch**. If a `ValidationException` is thrown **deeper** in the pipeline (after routing reaches your API), the exception unwinds through `next` and is caught here to return **400** with a problem JSON body.
+- So the reason for “first” is **exception handling scope** (outer catch), not “validate before anything runs.”
+- Typical order rationale (short):
+  - Exception-handling outer shell early (what we did).
+  - HTTPS redirection before most other logic.
+  - CORS must run **before** the browser-enforced preflight/response headers matter; placing it before endpoints is standard.
+  - AuthZ runs before endpoints are executed.
+  - `MapControllers` registers endpoint execution; `Run` starts the server.
+
+### 2. `ApplicationBuilderExtensions`: one class for many middlewares, or one class per middleware?
+
+- Both are valid. Common team styles:
+  - One static class (e.g. `ApplicationBuilderExtensions`) with multiple `UseSomething(this IApplicationBuilder app)` methods.
+  - Or separate small classes/files per middleware if each has substantial setup.
+- For a few lines per concern, grouping extensions in one class keeps `Program.cs` readable. If a middleware grows (options, env checks), split it out.
+
+| One extensions class | Separate extension classes |
+| --- | --- |
+| 1. Fewer files; all `UseX` discoverable in one place. | 1. Clear ownership per middleware/feature. |
+| 2. Good for small APIs. | 2. Better when many pipelines differ by environment. |
+
+### 3. What `Program.cs` CORS block does (lines ~10–19)
+
+- `AddCors` registers CORS services into DI.
+- `AddDefaultPolicy` defines the **default** named policy the app will use when you call `UseCors()` with no policy name.
+- `WithOrigins("http://localhost:5173", "https://localhost:5173")` allows browser calls from a local Vite dev server (HTTP or HTTPS).
+- `AllowAnyHeader()` allows headers like `Content-Type`, `Authorization`, etc., from those origins.
+- `AllowAnyMethod()` allows GET/POST/OPTIONS (preflight) and other verbs you need during development.
+- Production should replace the wildcard-style allowances with a tighter origin list and often stricter headers/methods.
+
+### 4. What is `BattleArena.Api.http`? Why use `.http` files?
+
+- It is a **simple REST request script** for IDEs (Visual Studio **.http** / **REST Client**, JetBrains **HTTP Client**).
+- You can run requests (GET/POST) against your API **without** Postman/Swagger UI, useful for quick checks and sharing examples with the team.
+- It is **not** executed by the server; it is a **developer tool** file checked into the repo for convenience.
+
+### 5. What is `Type` in `ValidationProblemDetails` (FluentValidation middleware)?
+
+- `Type` is a **URI string** that identifies the problem category for clients and humans (part of **Problem Details** / RFC 7807 style responses).
+- We set it to `https://tools.ietf.org/html/rfc7231#section-6.5.1`, which points to documentation about **400 Bad Request** semantics in HTTP semantics.
+- It is **not** the exception type name; it is a **stable documentation link** (you can later replace it with your own API documentation URI per error type).
+
+---
+
+## Notes for project overseer (controller / layers)
+
+Purpose: align review expectations with the same direction as the MeetingRoom “ReservationSeries-style” CQRS sample (MediatR, handlers, validation pipeline), not legacy fat controllers.
+
+- **Controller responsibility:** HTTP only—bind query/body, call `IMediator.Send(...)`, return status codes and DTO shapes. No business rules in the controller.
+- **Application layer:** Commands/queries + handlers + FluentValidation live in `BattleArena.Application`. Each handler is the use-case orchestrator (equivalent role to a small application service per operation).
+- **Persistence abstraction:** Application depends on `IApplicationDbContext`; Infrastructure implements it with EF Core. We are **not** requiring a separate `IRepository` per aggregate unless a use case needs it (test isolation, complex read ports, or swapping storage).
+- **Optional service interface between controller and MediatR:** Not the default—would duplicate the handler. Consider only if the same orchestration must be invoked from non-HTTP entry points (background job, message consumer) and you want one shared façade.
+- **Consistency with MeetingRoom:** Prefer the **CQRS module** pattern (feature folders, commands/queries, behaviors) as the reference; older scaffold-style controllers are not the template for new endpoints here.
+
+---
+
+## Character grid API (quick reference)
+
+- **GET** `http://localhost:5084/api/characters?page=1&pageSize=20` (adjust host/port if your launch profile differs).
+- **Response shape:** `PagedCharacterRowsResult` — `items` (rows) + `totalCount` (for pagination UI).
+- **Next frontend step:** Vite + React + TanStack Table in a separate `web/` folder calling this GET (and POST for create when needed).
+
+### Can we see the grid without running migrations?
+
+- **End-to-end with real data:** **No.** The handler queries SQL Server through EF Core. If the `Characters` table (and schema) does not exist, the request typically fails at runtime with a SQL/EF error (e.g. invalid object name).
+- **UI-only:** **Yes, partially.** You can still build the React grid and show an empty table, a loading state, or an error message when the API call fails—useful for layout work, but not a substitute for a working read API.
+- **Demos without SQL (optional, not current setup):** Using an **in-memory** EF provider for development would let the GET succeed without SQL migrations, but that is a different configuration and not what the repo is wired for today.
+
+**Reminder:** Apply EF migrations (or `database update`) against the configured `DefaultConnection` before expecting the grid GET to return successful JSON with data.
+
+---
+
+## LocalDB connection string (dev)
+
+`BattleArena.Api/appsettings.json`:
+
+- `ConnectionStrings:DefaultConnection` = `Server=(LocalDb)\MSSQLLocalDB;Database=BattleArena;Trusted_Connection=True;TrustServerCertificate=True;`
+
+Adjust instance name if your machine uses a different LocalDB name.
+
+---
+
+## EF Core migrations (commands)
+
+Open a terminal at the folder that contains `BattleArena.Api` and `BattleArena.Infrastructure` (repo path: `BattleArena/` under the solution root).
+
+**Prerequisite (once per machine):** EF CLI tools
+
+- `dotnet tool install --global dotnet-ef`
+- If already installed but outdated: `dotnet tool update --global dotnet-ef`
+
+**Add migration** (creates files under `BattleArena.Infrastructure/Persistence/Migrations/`):
+
+- `dotnet ef migrations add InitialCreate --project BattleArena.Infrastructure --startup-project BattleArena.Api --output-dir Persistence\Migrations`
+
+**Apply to database** (creates/updates `BattleArena` on LocalDB):
+
+- `dotnet ef database update --project BattleArena.Infrastructure --startup-project BattleArena.Api`
+
+**Remove last migration** (only if not applied, or after careful review):
+
+- `dotnet ef migrations remove --project BattleArena.Infrastructure --startup-project BattleArena.Api`
+
+**Notes**
+
+- `Microsoft.EntityFrameworkCore.Design` is referenced on **BattleArena.Api** (startup) and **BattleArena.Infrastructure** so `dotnet ef` can discover the `DbContext` and build the model.
+- If the tools warn the CLI version is older than the runtime, update `dotnet-ef` with the command above.
+- This repo includes an applied migration **`InitialCreate`** targeting the `Characters` table; rerun `database update` on a new machine after clone.
+
+---
+
+## Frontend (`web/`) — Vite + React + grid
+
+Location: `BattleArena/web` (Vite React + TypeScript).
+
+**Stack:** `@tanstack/react-table` for the grid, `@tanstack/react-query` for server-state and caching.
+
+**Config:** `web/.env.development` sets `VITE_API_BASE_URL=http://localhost:5084` (match your API launch profile port if different).
+
+**Run (two terminals):**
+
+1. API: from `BattleArena/`, run `dotnet run --project BattleArena.Api` (or F5 in Visual Studio).
+2. Web: from `BattleArena/web/`, run `npm run dev` and open the printed local URL (usually `http://localhost:5173`).
+
+**CORS:** `Program.cs` allows `http://localhost:5173` and `https://localhost:5173` for development.
+
+**What the page does:** `GET /api/characters?page=&pageSize=` with Previous/Next, page-size select, and Refresh. Empty database shows an empty grid message until you POST sample data (see `BattleArena.Api.http`).
+
+**Longer React/Vite/TanStack walkthrough (commands + every `src` file):** see `web/REACT-LEARNING.md`.

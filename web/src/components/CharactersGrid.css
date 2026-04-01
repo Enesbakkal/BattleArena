@@ -1,0 +1,99 @@
+.characters-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family: system-ui, sans-serif;
+}
+
+.characters-grid__header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.characters-grid__hint {
+  margin: 0 0 1rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.characters-grid__hint code {
+  font-size: 0.85rem;
+}
+
+.characters-grid__toolbar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.characters-grid__toolbar select {
+  margin-left: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.characters-grid__toolbar button {
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.characters-grid__status,
+.characters-grid__error {
+  margin: 0 0 1rem;
+}
+
+.characters-grid__error {
+  color: #b00020;
+}
+
+.characters-grid__table-wrap {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.characters-grid__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.characters-grid__table th,
+.characters-grid__table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.characters-grid__table th {
+  background: #f6f6f6;
+  font-weight: 600;
+}
+
+.characters-grid__table tr:last-child td {
+  border-bottom: none;
+}
+
+.characters-grid__empty {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+}
+
+.characters-grid__pager {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.characters-grid__pager button {
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.characters-grid__pager button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

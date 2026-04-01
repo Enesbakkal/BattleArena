@@ -1,6 +1,24 @@
 @BattleArena.Api_HostAddress = http://localhost:5084
 
-GET {{BattleArena.Api_HostAddress}}/weatherforecast/
+### Paged characters (grid data)
+GET {{BattleArena.Api_HostAddress}}/api/characters?page=1&pageSize=20
 Accept: application/json
+
+###
+
+### Create character (grid / form)
+POST {{BattleArena.Api_HostAddress}}/api/characters
+Content-Type: application/json
+
+{
+  "name": "Monkey D. Luffy",
+  "universe": "One Piece",
+  "biography": "Straw Hat captain",
+  "rarity": 5,
+  "baseAttack": 120,
+  "baseDefense": 90,
+  "baseSpeed": 110,
+  "imageUrl": null
+}
 
 ###

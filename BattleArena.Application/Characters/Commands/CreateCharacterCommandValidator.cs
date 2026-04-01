@@ -1,8 +1,8 @@
 using FluentValidation;
 
-namespace BattleArena.Application.Characters;
+namespace BattleArena.Application.Characters.Commands;
 
-// FluentValidation rules for CreateCharacterCommand; wired later via DI + MediatR pipeline behavior.
+// FluentValidation rules for CreateCharacterCommand; wired via DI + MediatR pipeline behavior.
 public sealed class CreateCharacterCommandValidator : AbstractValidator<CreateCharacterCommand>
 {
     public CreateCharacterCommandValidator()
