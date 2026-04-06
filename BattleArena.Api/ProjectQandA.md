@@ -270,32 +270,98 @@ Adjust instance name if your machine uses a different LocalDB name.
 
 ---
 
-## EF Core migrations (commands)
+## Remote SQL Server (login/password) — User Secrets (do not commit passwords)
 
-Open a terminal at the folder that contains `BattleArena.Api` and `BattleArena.Infrastructure` (repo path: `BattleArena/` under the solution root).
+**Security:** Never put SQL passwords in `appsettings.json` if the repo is shared or public. This project has a **UserSecretsId** on `BattleArena.Api` so you can store the connection string only on your machine.
+
+**Who creates the database?**
+
+- **Often you create the empty database first** (SSMS: right-click Databases → New Database, or your host’s panel). Name it e.g. `BattleArena` (or whatever your team uses). The SQL login must be `db_owner` (or at least DDL rights) on **that** database.
+- **Sometimes** the login has `dbcreator` on the server: then `dotnet ef database update` may run `CREATE DATABASE` for the name in the connection string. Many corporate/shared servers **do not** allow that — then you **must** create the database manually first.
+- **Either way, EF migrations create/update tables** (`Characters`, `__EFMigrationsHistory`, etc.) inside the database you point to with `Database=...`.
+
+**Connection string shape (SQL authentication):**
+
+`Server=YOUR_SERVER;Database=YOUR_DB;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;Encrypt=True;`
+
+- Replace `YOUR_SERVER` with the real host (e.g. `localhost`, `192.168.x.x`, `machine\INSTANCE`, or a cloud host). If `ServerName` in your notes is actually the **database** name, put that value in `Database=`, not in `Server=`.
+- `TrustServerCertificate=True` is common in dev when the server uses a self-signed cert.
+
+**Store with User Secrets (from `BattleArena/` folder):**
+
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True;Encrypt=True;" --project BattleArena.Api
+```
+
+Run **`database update`** (same EF commands as below) so schema applies to that server.
+
+### User Secrets — summary of what we configured (this repo)
+
+- **`BattleArena.Api.csproj`** contains `<UserSecretsId>...</UserSecretsId>` so this API project has its own secret store on your PC (not in git).
+- **Purpose:** store `ConnectionStrings:DefaultConnection` (e.g. SQL login/password) **only locally**, overriding `appsettings.json` when the app runs in **Development**.
+- **Set a secret (recommended folder: `BattleArena/`, i.e. parent of `BattleArena.Api`):**
+
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True;Encrypt=True;" --project BattleArena.Api
+```
+
+- **If your terminal’s current directory is already `BattleArena.Api/`,** use the `.csproj` file name so dotnet does not look for a wrong path:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=...;" --project BattleArena.Api.csproj
+```
+
+- **List secrets (verify):** `dotnet user-secrets list --project BattleArena.Api` (from `BattleArena/`) or `--project BattleArena.Api.csproj` (from `BattleArena.Api/`).
+- **Physical location (Windows, optional):** `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json` — do not copy this into the repo.
+- **Reminder:** never paste production passwords into chat or commit them; rotate if exposed.
+
+---
+
+## EF Core migrations — what they are, and where to run commands
+
+### What is a migration?
+
+- A **migration** is a **versioned C# + SQL snapshot** of your EF model: it describes how to create or alter tables (e.g. `Characters`, indexes) and records what was applied in **`__EFMigrationsHistory`** inside the database.
+- **`migrations add`** = generate **new** migration files from the current model (when you change entities/config). You commit those files to git.
+- **`database update`** = apply **pending** migrations to the database pointed to by **`ConnectionStrings:DefaultConnection`** (LocalDB, or your SQL Server via User Secrets — same command).
+
+Changing the connection string does **not** require deleting old migrations; `database update` simply runs against the **new** database next time.
+
+### Where to run commands? (working directory)
+
+**Recommended:** open the terminal in **`D:\BattleArenaAndFigures\BattleArena`** — the folder that **contains both** `BattleArena.Api` and `BattleArena.Infrastructure` as subfolders.
+
+Then use:
+
+- `--project BattleArena.Infrastructure` → where the `DbContext` and `Migrations` folder live.
+- `--startup-project BattleArena.Api` → loads configuration (including **User Secrets** in Development) and references so EF tools can build the host.
+
+**Türkçe kısa:** Komutları **`BattleArena` klasöründe** çalıştır (Api ve Infrastructure’un üst klasörü). `BattleArena.Api` içindeysen `--project` için **`.csproj` dosya adını** kullan (`BattleArena.Api.csproj` veya `..\BattleArena.Infrastructure\BattleArena.Infrastructure.csproj` gibi yollar net olmalı).
+
+### Commands (from `BattleArena/`)
 
 **Prerequisite (once per machine):** EF CLI tools
 
 - `dotnet tool install --global dotnet-ef`
 - If already installed but outdated: `dotnet tool update --global dotnet-ef`
 
-**Add migration** (creates files under `BattleArena.Infrastructure/Persistence/Migrations/`):
+**Add a new migration** (only when the model changed; creates files under `BattleArena.Infrastructure/Persistence/Migrations/`):
 
-- `dotnet ef migrations add InitialCreate --project BattleArena.Infrastructure --startup-project BattleArena.Api --output-dir Persistence\Migrations`
+- `dotnet ef migrations add <Name> --project BattleArena.Infrastructure --startup-project BattleArena.Api --output-dir Persistence\Migrations`
 
-**Apply to database** (creates/updates `BattleArena` on LocalDB):
+**Apply migrations to the database** (uses current `DefaultConnection` — appsettings + User Secrets in Development):
 
 - `dotnet ef database update --project BattleArena.Infrastructure --startup-project BattleArena.Api`
 
-**Remove last migration** (only if not applied, or after careful review):
+**Remove last migration** (only if not applied to important databases, or after careful review):
 
 - `dotnet ef migrations remove --project BattleArena.Infrastructure --startup-project BattleArena.Api`
 
-**Notes**
+### Notes
 
 - `Microsoft.EntityFrameworkCore.Design` is referenced on **BattleArena.Api** (startup) and **BattleArena.Infrastructure** so `dotnet ef` can discover the `DbContext` and build the model.
 - If the tools warn the CLI version is older than the runtime, update `dotnet-ef` with the command above.
-- This repo includes an applied migration **`InitialCreate`** targeting the `Characters` table; rerun `database update` on a new machine after clone.
+- This repo already includes **`InitialCreate`** for the `Characters` table; on a **new** SQL database, run **`database update` once** so tables exist.
 
 ---
 
