@@ -23,3 +23,38 @@ export async function fetchCharactersPage(
   }
   return (await res.json()) as PagedCharacterRowsResult
 }
+
+export type CreateCharacterBody = {
+  name: string
+  universe: string
+  biography?: string | null
+  rarity: number
+  baseAttack: number
+  baseDefense: number
+  baseSpeed: number
+  imageUrl?: string | null
+}
+
+// POST /api/characters — returns new character id (JSON string GUID).
+export async function createCharacter(
+  body: CreateCharacterBody,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetch(`${apiBase()}/api/characters`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+
+  const text = await res.text()
+  if (!res.ok) {
+    throw new Error(text || `Request failed: ${res.status}`)
+  }
+
+  try {
+    return JSON.parse(text) as string
+  } catch {
+    return text.replace(/^"|"$/g, '')
+  }
+}

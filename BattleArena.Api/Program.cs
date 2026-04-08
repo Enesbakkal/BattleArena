@@ -12,7 +12,11 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173", "https://localhost:5173")
+            .WithOrigins(
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "http://127.0.0.1:5173",
+                "https://127.0.0.1:5173")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -30,7 +34,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseFluentValidationExceptionHandler();
 
-app.UseHttpsRedirection();
+// In Development, skip HTTPS redirection so Vite (http://localhost:5173) can call http://localhost:5084 without redirect/CORS issues.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors();
 

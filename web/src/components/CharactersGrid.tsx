@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createColumnHelper,
   flexRender,
@@ -7,7 +7,7 @@ import {
   useReactTable,
   type PaginationState,
 } from '@tanstack/react-table'
-import { fetchCharactersPage } from '../api/charactersApi'
+import { createCharacter, fetchCharactersPage } from '../api/charactersApi'
 import type { CharacterRow } from '../types/characters'
 import './CharactersGrid.css'
 
@@ -28,10 +28,19 @@ const columns = [
 ]
 
 export function CharactersGrid() {
+  const queryClient = useQueryClient()
+
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 20,
   })
+
+  const [name, setName] = useState('Monkey D. Luffy')
+  const [universe, setUniverse] = useState('One Piece')
+  const [rarity, setRarity] = useState(5)
+  const [baseAttack, setBaseAttack] = useState(120)
+  const [baseDefense, setBaseDefense] = useState(90)
+  const [baseSpeed, setBaseSpeed] = useState(110)
 
   const page = pagination.pageIndex + 1
   const { pageSize } = pagination
@@ -40,6 +49,23 @@ export function CharactersGrid() {
     queryKey: ['characters', page, pageSize],
     queryFn: ({ signal }) => fetchCharactersPage(page, pageSize, signal),
     placeholderData: (prev) => prev,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createCharacter({
+        name: name.trim(),
+        universe: universe.trim(),
+        biography: null,
+        rarity,
+        baseAttack,
+        baseDefense,
+        baseSpeed,
+        imageUrl: null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['characters'] })
+    },
   })
 
   const totalPages = useMemo(() => {
@@ -66,6 +92,73 @@ export function CharactersGrid() {
         <p className="characters-grid__hint">
           API: <code>{import.meta.env.VITE_API_BASE_URL}</code> — start BattleArena.Api first.
         </p>
+        <section className="characters-grid__form" aria-label="Add character">
+          <h2 className="characters-grid__form-title">Add character</h2>
+          <div className="characters-grid__form-grid">
+            <label className="characters-grid__field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label className="characters-grid__field">
+              Universe
+              <input value={universe} onChange={(e) => setUniverse(e.target.value)} />
+            </label>
+            <label className="characters-grid__field">
+              Rarity (1–5)
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={rarity}
+                onChange={(e) => setRarity(Number(e.target.value))}
+              />
+            </label>
+            <label className="characters-grid__field">
+              ATK
+              <input
+                type="number"
+                min={0}
+                value={baseAttack}
+                onChange={(e) => setBaseAttack(Number(e.target.value))}
+              />
+            </label>
+            <label className="characters-grid__field">
+              DEF
+              <input
+                type="number"
+                min={0}
+                value={baseDefense}
+                onChange={(e) => setBaseDefense(Number(e.target.value))}
+              />
+            </label>
+            <label className="characters-grid__field">
+              SPD
+              <input
+                type="number"
+                min={0}
+                value={baseSpeed}
+                onChange={(e) => setBaseSpeed(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          {createMutation.isError && (
+            <p className="characters-grid__error" role="alert">
+              {(createMutation.error as Error).message}
+            </p>
+          )}
+          {createMutation.isSuccess && (
+            <p className="characters-grid__status">Saved (id: {createMutation.data}). Grid refreshed.</p>
+          )}
+          <button
+            type="button"
+            className="characters-grid__submit"
+            disabled={createMutation.isPending || !name.trim() || !universe.trim()}
+            onClick={() => createMutation.mutate()}
+          >
+            {createMutation.isPending ? 'Saving…' : 'Save character'}
+          </button>
+        </section>
+
         <div className="characters-grid__toolbar">
           <label>
             Page size{' '}

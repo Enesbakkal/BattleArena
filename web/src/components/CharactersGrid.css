@@ -20,6 +20,54 @@
   font-size: 0.85rem;
 }
 
+.characters-grid__form {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.characters-grid__form-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.characters-grid__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.characters-grid__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.characters-grid__field input {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.characters-grid__submit {
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #222;
+  color: #fff;
+}
+
+.characters-grid__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .characters-grid__toolbar {
   display: flex;
   gap: 1rem;
