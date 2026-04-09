@@ -22,3 +22,32 @@ Content-Type: application/json
 }
 
 ###
+
+### Get one (detail)
+@characterId = 00000000-0000-0000-0000-000000000000
+GET {{BattleArena.Api_HostAddress}}/api/characters/{{characterId}}
+Accept: application/json
+
+###
+
+### Update (replace @characterId)
+PUT {{BattleArena.Api_HostAddress}}/api/characters/{{characterId}}
+Content-Type: application/json
+
+{
+  "name": "Monkey D. Luffy",
+  "universe": "One Piece",
+  "biography": "Updated bio",
+  "rarity": 5,
+  "baseAttack": 125,
+  "baseDefense": 90,
+  "baseSpeed": 110,
+  "imageUrl": null
+}
+
+###
+
+### Delete
+DELETE {{BattleArena.Api_HostAddress}}/api/characters/{{characterId}}
+
+###

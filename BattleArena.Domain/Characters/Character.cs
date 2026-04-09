@@ -56,4 +56,24 @@ public sealed class Character
             CreatedAtUtc = utcNow
         };
     }
+
+    public void Update(
+        string name,
+        string universe,
+        string? biography,
+        int rarity,
+        int baseAttack,
+        int baseDefense,
+        int baseSpeed,
+        string? imageUrl)
+    {
+        Name = name;
+        Universe = universe;
+        Biography = biography;
+        Rarity = rarity;
+        BaseAttack = baseAttack;
+        BaseDefense = baseDefense;
+        BaseSpeed = baseSpeed;
+        ImageUrl = imageUrl;
+    }
 }

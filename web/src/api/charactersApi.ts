@@ -1,4 +1,5 @@
-import type { PagedCharacterRowsResult } from '../types/characters'
+import type { CharacterDetail, PagedCharacterRowsResult } from '../types/characters'
+import { formatApiErrorBody } from './formatApiError'
 
 // Base URL from Vite env; trim trailing slash so paths stay correct.
 function apiBase(): string {
@@ -19,7 +20,7 @@ export async function fetchCharactersPage(
   const res = await fetch(url.toString(), { signal })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(text || `Request failed: ${res.status}`)
+    throw new Error(formatApiErrorBody(res.status, text))
   }
   return (await res.json()) as PagedCharacterRowsResult
 }
@@ -49,12 +50,61 @@ export async function createCharacter(
 
   const text = await res.text()
   if (!res.ok) {
-    throw new Error(text || `Request failed: ${res.status}`)
+    throw new Error(formatApiErrorBody(res.status, text))
   }
 
   try {
     return JSON.parse(text) as string
   } catch {
     return text.replace(/^"|"$/g, '')
+  }
+}
+
+export async function fetchCharacterById(
+  id: string,
+  signal?: AbortSignal,
+): Promise<CharacterDetail> {
+  const res = await fetch(`${apiBase()}/api/characters/${encodeURIComponent(id)}`, { signal })
+  if (res.status === 404) {
+    throw new Error('Character not found.')
+  }
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(formatApiErrorBody(res.status, text))
+  }
+  return (await res.json()) as CharacterDetail
+}
+
+export async function updateCharacter(
+  id: string,
+  body: CreateCharacterBody,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/characters/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+  if (res.status === 404) {
+    throw new Error('Character not found.')
+  }
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(formatApiErrorBody(res.status, text))
+  }
+}
+
+export async function deleteCharacter(id: string, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/characters/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    signal,
+  })
+  if (res.status === 404) {
+    throw new Error('Character not found.')
+  }
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(formatApiErrorBody(res.status, text))
   }
 }
