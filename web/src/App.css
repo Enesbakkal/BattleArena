@@ -1,6 +1,1 @@
-main {
-  min-height: 100vh;
-  background: #f1f5f9;
-  text-align: left;
-  color: #0f172a;
-}
+/* Layout chrome lives in AppLayout; page surface is CharactersGrid. */

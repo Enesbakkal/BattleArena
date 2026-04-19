@@ -1,0 +1,22 @@
+.env-badge {
+  flex-shrink: 0;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.env-badge--dev {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.env-badge--prod {
+  color: #14532d;
+  background: #dcfce7;
+  border-color: #86efac;
+}
