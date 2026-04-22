@@ -185,4 +185,106 @@ Yazım kuralı (diğer Q&A ile uyumlu): kısa madde veya düz paragraflar. Karş
 - Özet: **“Hangi child?”** sorusunun cevabı = **adres çubuğu + `App.tsx`’teki `path`/`index`/`*` sırası ve kuralları** (React Router’un eşleştirme algoritması).
 
 
-AppLayout.tsx bir daha okunacak *****************************************************************
+## Gün 3 — Router kavramları (`REACT-WEEK-COURSE` 80–85)
+
+### 1. Bu maddeler kısa ve “iki satır” mantığıyla ne demek?
+
+**`BrowserRouter`**  
+- Tarayıcının URL/history API’sini kullanarak sayfa yenilemeden route değiştirir.  
+- URL değiştiğinde uygun `Route` eşleşir ve içerik `<Outlet />` içine basılır.
+
+**`Routes` / `Route`**  
+- “Eğer URL şuysa bu bileşeni göster” kural listesidir.  
+- Bildirimsel (declarative) çalışır: `if-else` yazmak yerine JSX ile kural tanımlarsın.
+
+**`Navigate` + `replace`**  
+- Otomatik yönlendirme yapar (örn. `/` → `/characters`).  
+- `replace` olursa tarayıcı geçmişine ekstra adım eklemez (geri tuşunda loop azalır).
+
+**`NavLink`**  
+- `Link` gibi gezinir ama aktif route’u bilir.  
+- `className` callback ile aktifken farklı CSS sınıfı verip seçili menü gösterebilirsin.
+
+**`useLocation`**  
+- Mevcut URL bilgisini (`pathname`) verir.  
+- Bu projede path değişince mobil sidebar’ı kapatmak için kullanıyoruz.
+
+**SPA deployment notu**  
+- `/characters` gibi derin linkte sunucu bu path’i tanımıyorsa 404 dönebilir.  
+- Çözüm: sunucu “bulamadığı path’leri `index.html`’e fallback et” ayarıyla çalışmalı.
+
+### 2. “Her şey Characters’a gidiyor” neden oluyor?
+
+- Şu an route listende gerçek sayfa olarak sadece **`/characters`** var; marka linki de sidebar linki de bilerek oraya bağlı.  
+- Bu yüzden ikisine tıklayınca aynı sayfayı görmen normal; farkı `NavLink` aktif stiliyle anlarsın.  
+- Yeni bir sayfa ekleyince (örn. `/arena`) bu durum değişecek; her link kendi route’una gidecek.
+
+---
+
+## Gün 4 — Env, responsive shell, aria, Escape (`REACT-WEEK-COURSE` 105–109)
+
+### 1. 105–109 maddeleri kısa ve net ne demek?
+
+**`import.meta.env`**  
+- Vite’ın build-time ortam bilgileri: `DEV`, `PROD`, `MODE`.  
+- Bu projede header rozetinde ve footer metninde kullanılıyor.
+
+**`.env.development` + `VITE_` kuralı**  
+- Tarayıcıya sadece `VITE_` ile başlayan değişkenler açılır.  
+- Bu yüzden API adresi `VITE_API_BASE_URL` olarak yazılır.
+
+**Responsive strateji (mobile-first)**  
+- Mobilde hamburger + açılır sabit sidebar + karartı (scrim) var.  
+- Geniş ekranda sidebar kalıcı sütun olur; hamburger/scrim kapanır.
+
+**`aria-expanded`, `aria-controls`, `aria-hidden`**  
+- Erişilebilirlik için yardımcı teknolojilere menü durumunu anlatır.  
+- “Buton hangi paneli açıyor?” ve “panel şu an gizli mi?” bilgisini verir.
+
+**Escape ile kapatma**  
+- Menü açıksa `Escape` tuşu sidebar’ı kapatır.  
+- Aynı desen modal bileşenindeki Escape kapanışıyla aynıdır.
+
+### 2. `sidebarOpen` — tüm etkileşim akışı
+
+- Başlangıçta `false` (mobilde sidebar kapalı).  
+- Hamburger tıklanınca `toggleSidebar` ile `true/false` arasında geçer.
+
+- `true` olunca scrim görünür, sidebar `--open` sınıfı alır.  
+- Scrim’e tıklamak veya marka/link tıklamak `closeSidebar` ile kapatır.
+
+- Route (`location.pathname`) değişince otomatik `closeSidebar()` çalışır.  
+- Menü açıkken `Escape` tuşu da kapatır.
+
+- `matchMedia` geniş ekran algılarsa `isDesktop=true` ve menüyü kapatır.  
+- Böylece desktop’a geçince overlay durumları temizlenir.
+
+### 3. `AppLayout.css` içindeki “grid template areas / scrim / media query” ne?
+
+**`grid-template-areas`**  
+- `app-shell` için yerleşim haritası: header, sidebar, main, footer.  
+- Mobil ve desktop’ta farklı harita vererek düzen değiştirir.
+
+**`.app-shell__scrim`**  
+- Sidebar açıkken görünen yarı saydam katman.  
+- Amaç: arka planı pasifleştirmek ve “tıklayıp kapat” davranışı.
+
+**`@media (...)`**  
+- Ekran genişliğine göre farklı CSS kuralları uygular.  
+- Bu projede desktop breakpoint’te sidebar kalıcı hale geçiyor.
+
+### 4. “460 yaptım ama değişiklik görmedim” neden olabilir?
+
+- En olası sebep: penceren zaten 460’ın üstündeydi; yani iki durumda da desktop kuralları aktif kaldı.  
+- İkinci kritik nokta: JS tarafında `desktopMq` hâlâ `960` ise CSS/JS eşiği ayrışır.
+
+- Şu an kodda **JS: `960`**, **CSS media query: `460`** görünüyor; bu tutarsızlık davranışı kafa karıştırır.  
+- En sağlıklısı ikisini aynı değerde tutmak (genelde yine `960`).
+
+### 5. `npm run preview` sonrası neden `localhost:5173` açılmadı?
+
+- `5173` genelde **`npm run dev`** portudur (Vite dev server).  
+- `npm run preview` farklı sunucu açar; varsayılan port çoğunlukla **`4173`**.
+
+- Yani preview’de açman gereken adres büyük ihtimalle `http://localhost:4173`.  
+- İstersen preview’i 5173’te çalıştırabilirsin: `npm run preview -- --port 5173`.
