@@ -3,4 +3,7 @@
   <Project Path="BattleArena.Application/BattleArena.Application.csproj" />
   <Project Path="BattleArena.Domain/BattleArena.Domain.csproj" />
   <Project Path="BattleArena.Infrastructure/BattleArena.Infrastructure.csproj" />
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
 </Solution>
