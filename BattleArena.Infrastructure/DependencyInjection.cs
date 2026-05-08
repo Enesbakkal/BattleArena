@@ -1,6 +1,8 @@
 using BattleArena.Application.Abstractions;
 using BattleArena.Infrastructure.Messaging;
 using BattleArena.Infrastructure.Persistence;
+using BattleArena.Infrastructure.Search;
+using Elastic.Clients.Elasticsearch;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +44,26 @@ public static class DependencyInjection
         {
             services.AddSingleton<IIntegrationEventPublisher, NullIntegrationEventPublisher>();
         }
+
+        services.Configure<ElasticsearchOptions>(
+            configuration.GetSection(ElasticsearchOptions.SectionName));
+
+        var elasticOptions = configuration
+            .GetSection(ElasticsearchOptions.SectionName)
+            .Get<ElasticsearchOptions>();
+
+        if (elasticOptions?.Enabled == true)
+        {
+            var settings = new ElasticsearchClientSettings(new Uri(elasticOptions.Url));
+            var client = new ElasticsearchClient(settings);
+            services.AddSingleton(client);
+        }
+        else
+        {
+            services.AddSingleton<ElasticsearchClient?>(_ => null);
+        }
+
+        services.AddScoped<ICharacterSearchReadModel, ElasticsearchCharacterSearchReadModel>();
 
         return services;
     }

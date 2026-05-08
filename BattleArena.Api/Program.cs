@@ -1,6 +1,8 @@
 using BattleArena.Api.Extensions;
 using BattleArena.Application;
 using BattleArena.Infrastructure;
+using Hangfire;
+using Hangfire.SqlServer;
 using Serilog;
 
 try
@@ -34,6 +36,21 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
+    builder.Services.AddHangfire(config =>
+    {
+        config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180);
+        config.UseSimpleAssemblyNameTypeSerializer();
+        config.UseRecommendedSerializerSettings();
+        config.UseSqlServerStorage(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            new SqlServerStorageOptions
+            {
+                PrepareSchemaIfNecessary = true
+            });
+    });
+
+    builder.Services.AddHangfireServer();
+
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();
@@ -51,10 +68,19 @@ try
     }
 
     app.UseCors();
-
     app.UseAuthorization();
 
+    var hangfireDashboardPath =
+        builder.Configuration["Hangfire:DashboardPath"] ?? "/hangfire";
+    app.MapHangfireDashboard(hangfireDashboardPath);
+
     app.MapControllers();
+
+    var cleanupCron = builder.Configuration["Hangfire:RecurringCleanupCron"] ?? "0 */6 * * *";
+    RecurringJob.AddOrUpdate(
+        "characters-cleanup-placeholder",
+        () => Console.WriteLine($"[Hangfire] Cleanup tick at {DateTime.UtcNow:O}"),
+        cleanupCron);
 
     Log.Information("BattleArena API listening");
 
