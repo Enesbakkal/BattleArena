@@ -16,6 +16,7 @@ try
             .Enrich.FromLogContext());
 
     builder.Services.AddControllers();
+    builder.Services.AddHealthChecks();
     builder.Services.AddOpenApi();
 
     builder.Services.AddCors(options =>
@@ -75,6 +76,7 @@ try
     app.MapHangfireDashboard(hangfireDashboardPath);
 
     app.MapControllers();
+    app.MapHealthChecks("/health");
 
     var cleanupCron = builder.Configuration["Hangfire:RecurringCleanupCron"] ?? "0 */6 * * *";
     RecurringJob.AddOrUpdate(

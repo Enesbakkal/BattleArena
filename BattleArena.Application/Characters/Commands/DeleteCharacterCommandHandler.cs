@@ -12,15 +12,18 @@ public sealed class DeleteCharacterCommandHandler : IRequestHandler<DeleteCharac
     private readonly IApplicationDbContext _db;
     private readonly IMemoryCache _memoryCache;
     private readonly IDistributedCache _distributedCache;
+    private readonly ICharacterSearchIndexer _searchIndexer;
 
     public DeleteCharacterCommandHandler(
         IApplicationDbContext db,
         IMemoryCache memoryCache,
-        IDistributedCache distributedCache)
+        IDistributedCache distributedCache,
+        ICharacterSearchIndexer searchIndexer)
     {
         _db = db;
         _memoryCache = memoryCache;
         _distributedCache = distributedCache;
+        _searchIndexer = searchIndexer;
     }
 
     public async Task<bool> Handle(DeleteCharacterCommand request, CancellationToken cancellationToken)
@@ -35,6 +38,8 @@ public sealed class DeleteCharacterCommandHandler : IRequestHandler<DeleteCharac
         var key = CharacterDetailCacheKeys.Detail(request.Id);
         _memoryCache.Remove(key);
         await _distributedCache.RemoveAsync(key, cancellationToken);
+
+        await _searchIndexer.DeleteAsync(request.Id, cancellationToken);
 
         return true;
     }

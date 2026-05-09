@@ -20,6 +20,15 @@ services:
     volumes:
       - sqlserver_data:/var/opt/mssql
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+
   battlearena.api:
     image: ${DOCKER_REGISTRY-}battlearenaapi
     build:
@@ -29,8 +38,12 @@ services:
       ASPNETCORE_URLS: "http://+:8080"
       ASPNETCORE_ENVIRONMENT: "Development"
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BattleArena;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False;"
+      Elasticsearch__Enabled: "true"
+      Elasticsearch__Url: "http://elasticsearch:9200"
+      Elasticsearch__CharactersIndex: "characters"
     depends_on:
       - sqlserver
+      - elasticsearch
 
   battlearena.api-2:
     image: ${DOCKER_REGISTRY-}battlearenaapi
@@ -41,8 +54,12 @@ services:
       ASPNETCORE_URLS: "http://+:8080"
       ASPNETCORE_ENVIRONMENT: "Development"
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BattleArena;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False;"
+      Elasticsearch__Enabled: "true"
+      Elasticsearch__Url: "http://elasticsearch:9200"
+      Elasticsearch__CharactersIndex: "characters"
     depends_on:
       - sqlserver
+      - elasticsearch
 
   nginx:
     image: nginx:alpine

@@ -64,6 +64,7 @@ public static class DependencyInjection
         }
 
         services.AddScoped<ICharacterSearchReadModel, ElasticsearchCharacterSearchReadModel>();
+        services.AddScoped<ICharacterSearchIndexer, ElasticsearchCharacterIndexer>();
 
         return services;
     }

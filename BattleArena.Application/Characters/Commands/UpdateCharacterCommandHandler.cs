@@ -12,15 +12,18 @@ public sealed class UpdateCharacterCommandHandler : IRequestHandler<UpdateCharac
     private readonly IApplicationDbContext _db;
     private readonly IMemoryCache _memoryCache;
     private readonly IDistributedCache _distributedCache;
+    private readonly ICharacterSearchIndexer _searchIndexer;
 
     public UpdateCharacterCommandHandler(
         IApplicationDbContext db,
         IMemoryCache memoryCache,
-        IDistributedCache distributedCache)
+        IDistributedCache distributedCache,
+        ICharacterSearchIndexer searchIndexer)
     {
         _db = db;
         _memoryCache = memoryCache;
         _distributedCache = distributedCache;
+        _searchIndexer = searchIndexer;
     }
 
     public async Task<bool> Handle(UpdateCharacterCommand request, CancellationToken cancellationToken)
@@ -44,6 +47,19 @@ public sealed class UpdateCharacterCommandHandler : IRequestHandler<UpdateCharac
         var key = CharacterDetailCacheKeys.Detail(request.Id);
         _memoryCache.Remove(key);
         await _distributedCache.RemoveAsync(key, cancellationToken);
+
+        await _searchIndexer.UpsertAsync(
+            new CharacterSearchIndexPayload(
+                entity.Id,
+                entity.Name,
+                entity.Universe,
+                entity.Biography,
+                entity.Rarity,
+                entity.BaseAttack,
+                entity.BaseDefense,
+                entity.BaseSpeed,
+                entity.CreatedAtUtc),
+            cancellationToken);
 
         return true;
     }

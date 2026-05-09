@@ -1,4 +1,5 @@
 using BattleArena.Api.Contracts;
+using BattleArena.Application.Abstractions;
 using BattleArena.Application.Characters.Commands;
 using BattleArena.Application.Characters.Queries;
 using MediatR;
@@ -27,6 +28,21 @@ public sealed class CharactersController : ControllerBase
     {
         var result = await _mediator.Send(new GetCharactersQuery(page, pageSize), cancellationToken);
         return Ok(result);
+    }
+
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(IReadOnlyList<CharacterSearchHit>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<CharacterSearchHit>>> Search(
+    [FromQuery] string term,
+    [FromQuery] int size = 20,
+    CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return BadRequest("term is required");
+
+        var hits = await _mediator.Send(new SearchCharactersQuery(term, size), cancellationToken);
+        return Ok(hits);
     }
 
     [HttpGet("{id:guid}")]
