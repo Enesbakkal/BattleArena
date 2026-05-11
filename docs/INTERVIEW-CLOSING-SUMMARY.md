@@ -24,7 +24,7 @@ Tek kaynak: mülakatta anlatım, yarın yapılacak doğrulama ve yapılandırma 
 | **SQL Server konteyner** | Host’tan `localhost,14333`; konteyner içinden `sqlserver,1433`. |
 | **İki API replikası + nginx** | `upstream` ile round-robin; dışarıdan tek giriş `localhost:8088`. |
 | **Elasticsearch** | Çok alanlı arama read model; CRUD sonrası indeks upsert/delete (`Elasticsearch:Enabled`). |
-| **Health** | `GET /health` — LB veya hızlı “yaşıyor mu” kontrolü. |
+| **Health** | `GET /health` — LB veya compose için basit readiness. |
 
 ---
 
@@ -99,3 +99,41 @@ Komutları repoda `BattleArena` klasöründen çalıştır (`docker-compose.yml`
 | Compose | `docker-compose.yml` |
 
 Bu dosya güncel tutulursa mülakat öncesi tek PDF/export kaynağı olarak kullanılabilir.
+
+---
+## Bring-up log (so far)
+
+### Step 1 — `dotnet restore` + `dotnet build`
+
+```powershell
+cd "d:\BattleArenaAndFigures\BattleArena"
+dotnet restore "BattleArena.slnx"
+dotnet build "BattleArena.slnx"
+```
+
+`dotnet build` başarılı oldu (**1 warning**): `CS8634` (`ElasticsearchClient?` nullability ile `AddSingleton` uyarısı).
+
+### Step 2 — LocalDB + Windows Authentication (Production)
+
+`BattleArena.Api/Properties/launchSettings.json` içinde `ASPNETCORE_ENVIRONMENT` değerini `Production` yaptık; böylece `appsettings.json` içindeki `(LocalDb)\MSSQLLocalDB` ve `Trusted_Connection=True` (Windows Authentication) kullanılır.
+
+### Step 3 — EF migrations (LocalDB)
+
+Çalıştırdığımız komut:
+
+```powershell
+cd "d:\BattleArenaAndFigures\BattleArena\BattleArena.Infrastructure"
+$env:ASPNETCORE_ENVIRONMENT="Production"
+dotnet ef database update
+```
+
+Sonuç: `No migrations were applied. The database is already up to date.`
+
+### Step 4 — API + `/health` (LocalDB, `dotnet run`)
+
+```powershell
+cd "d:\BattleArenaAndFigures\BattleArena"
+dotnet run --project BattleArena.Api --launch-profile http
+```
+
+OK: `http://localhost:5084/health` → `Healthy`.
