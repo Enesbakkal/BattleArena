@@ -1,7 +1,9 @@
 using BattleArena.Api.Extensions;
+using BattleArena.Api.Hangfire;
 using BattleArena.Application;
 using BattleArena.Infrastructure;
 using Hangfire;
+using Hangfire.Dashboard;
 using Hangfire.SqlServer;
 using Serilog;
 
@@ -73,7 +75,12 @@ try
 
     var hangfireDashboardPath =
         builder.Configuration["Hangfire:DashboardPath"] ?? "/hangfire";
-    app.MapHangfireDashboard(hangfireDashboardPath);
+    app.MapHangfireDashboard(
+        hangfireDashboardPath,
+        new DashboardOptions
+        {
+            Authorization = [new AllowAllDashboardAuthorizationFilter()]
+        });
 
     app.MapControllers();
     app.MapHealthChecks("/health");

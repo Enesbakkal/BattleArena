@@ -101,6 +101,21 @@ Komutları repoda `BattleArena` klasöründen çalıştır (`docker-compose.yml`
 Bu dosya güncel tutulursa mülakat öncesi tek PDF/export kaynağı olarak kullanılabilir.
 
 ---
+
+## Docker komutları (kısa)
+
+| Komut | Ne işe yarar |
+|--------|----------------|
+| `docker compose up -d` | Stack’i arka planda başlatır |
+| `docker compose ps` | Hangi konteyner **Up** |
+| `docker compose build battlearena.api` | API imajını yeniden derler |
+| `docker compose up -d --force-recreate battlearena.api battlearena.api-2` | API konteynerlerini yeni ayarlarla yeniden oluşturur |
+| `docker compose logs battlearena.api --tail 20` | API logunun **son 20 satırı** (aşağıya bak) |
+| `docker compose down` | Bu projenin konteynerlerini durdurur (sorun yoksa her gün gerekmez) |
+
+**`--tail N` nedir?** `docker compose logs` tüm logu döker; `--tail 20` sadece **en son 20 satırı** gösterir (hata ararken pratik). `--tail 50` = son 50 satır. Log canlı akar: `-f` ekle → `docker compose logs battlearena.api -f --tail 20` (çıkmak: Ctrl+C).
+
+---
 ## Bring-up log (so far)
 
 ### Step 1 — `dotnet restore` + `dotnet build`
@@ -137,3 +152,55 @@ dotnet run --project BattleArena.Api --launch-profile http
 ```
 
 OK: `http://localhost:5084/health` → `Healthy`.
+
+### Step 5 — Hangfire dashboard
+
+API çalışırken: `http://localhost:5084/hangfire` → **200 OK** (SQL storage LocalDB).
+
+### Step 6 — CRUD smoke (HTTP)
+
+- `POST http://localhost:5084/api/characters` → **201**
+- `GET http://localhost:5084/api/characters?page=1&pageSize=5` → OK
+- `GET http://localhost:5084/api/characters/{id}` → OK
+- `GET .../search?term=...` → **[]** (`Elasticsearch:Enabled=false` beklenen)
+
+### Step 7 — Hangfire (tarayıcı)
+
+`http://localhost:5084/hangfire` → Recurring: `characters-cleanup-placeholder` (`0 */6 * * *`). Servers: iki kayıt (arka arkaya `dotnet run` / eski süreç).
+
+### Step 8 — CRUD (Postman)
+
+Koleksiyon: `docs/BattleArena-Local.postman_collection.json`, `baseUrl` = `http://localhost:5084`
+
+1. `dotnet run --project BattleArena.Api --launch-profile http`
+2. `POST` / `GET` / `PUT` / `DELETE` / liste → OK
+
+<!-- Cursor: Step 1–7 metnine kullanıcı söylemeden dokunma. Step 8+ yalnızca çalıştırma + OK satırları. -->
+
+### Step 9 — Docker Compose
+
+1. `docker compose down -v` → `docker compose up -d` → infra Up; API **Exited** / log `sa` veya SQL bağlantı
+2. `http://localhost:8088/health` → **502** (nginx Up, API yok)
+3. SQL → `KLABAUTERMANN\MSSQL2024` + compose’tan `sqlserver` kaldırıldı; host SQL TCP gerekli
+
+### Step 9c — Host SQL + `dotnet run` (Production)
+
+1. `dotnet ef database update` (`Production`) → already up to date
+2. `dotnet run --launch-profile http` → Hangfire `KLABAUTERMANN\MSSQL2024@BattleArena`, `5084`
+3. `http://localhost:5084/health` → **Healthy**
+
+### Step 9d — Compose + host SQL TCP
+
+1. MSSQL2024 TCP **14330** + `.env` (`SQL_SERVER_HOST=192.168.1.124`, `SQL_SERVER_PORT=14330`)
+2. `docker compose up -d --force-recreate battlearena.api battlearena.api-2` → OK
+3. Log: `Production`, Hangfire `192.168.1.124,14330@BattleArena`
+4. `http://localhost:8088/health` → **Healthy**
+
+### Step 10 — Compose tam test (8088)
+
+1. CRUD Postman → OK (201/200/204)
+2. ES: `ElasticRobNow` POST → search dolu dizi; eski SQL kayıtları ES’te yok (beklenen)
+3. Rabbit+Redis compose env → recreate OK; Rabbit UI `battlearena.events` publish OK
+4. Hangfire 8088 OK; recurring `characters-cleanup-placeholder` (`0 */6 * * *`) OK
+5. 2 replika: Hangfire’da 2 server; nginx api + api-2 trafiği OK
+6. `curl http://localhost:8088/health` ×3 → **Healthy**

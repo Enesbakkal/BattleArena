@@ -10,16 +10,6 @@ services:
     ports:
       - "6379:6379"
 
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
-    ports:
-      - "14333:1433"
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
     environment:
@@ -34,32 +24,44 @@ services:
     build:
       context: .
       dockerfile: BattleArena.Api/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ASPNETCORE_URLS: "http://+:8080"
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BattleArena;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False;"
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ConnectionStrings__DefaultConnection: "Server=${SQL_SERVER_HOST:-192.168.1.124},${SQL_SERVER_PORT:-14330};Database=BattleArena;User Id=EBBankingAppDB;Password=ChanChanOda.5296;TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+      ConnectionStrings__Redis: "redis:6379"
+      RabbitMq__Enabled: "true"
+      RabbitMq__HostName: "rabbitmq"
       Elasticsearch__Enabled: "true"
       Elasticsearch__Url: "http://elasticsearch:9200"
       Elasticsearch__CharactersIndex: "characters"
     depends_on:
-      - sqlserver
       - elasticsearch
+      - redis
+      - rabbitmq
 
   battlearena.api-2:
     image: ${DOCKER_REGISTRY-}battlearenaapi
     build:
       context: .
       dockerfile: BattleArena.Api/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ASPNETCORE_URLS: "http://+:8080"
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BattleArena;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False;"
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ConnectionStrings__DefaultConnection: "Server=${SQL_SERVER_HOST:-192.168.1.124},${SQL_SERVER_PORT:-14330};Database=BattleArena;User Id=EBBankingAppDB;Password=ChanChanOda.5296;TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+      ConnectionStrings__Redis: "redis:6379"
+      RabbitMq__Enabled: "true"
+      RabbitMq__HostName: "rabbitmq"
       Elasticsearch__Enabled: "true"
       Elasticsearch__Url: "http://elasticsearch:9200"
       Elasticsearch__CharactersIndex: "characters"
     depends_on:
-      - sqlserver
       - elasticsearch
+      - redis
+      - rabbitmq
 
   nginx:
     image: nginx:alpine
@@ -70,6 +72,3 @@ services:
     depends_on:
       - battlearena.api
       - battlearena.api-2
-
-volumes:
-  sqlserver_data:
